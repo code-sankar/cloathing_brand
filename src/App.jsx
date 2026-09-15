@@ -10,6 +10,8 @@ import QuickViewModal from './components/QuickViewModal'
 import SearchModal from './components/SearchModal'
 import SizeGuide from './components/SizeGuide'
 import Toaster from './components/Toaster'
+import RecentlyViewed from './components/RecentlyViewed'
+import BackToTop from './components/BackToTop'
 
 export default function App() {
   return (
@@ -28,6 +30,7 @@ export default function App() {
         <ProductGrid />
         <Marquee />
         <Lookbook />
+        <RecentlyViewed />
       </main>
 
       <Footer />
@@ -38,6 +41,7 @@ export default function App() {
       <CartDrawer />
       <SizeGuide />
       <Toaster />
+      <BackToTop />
     </StoreProvider>
   )
 }

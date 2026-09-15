@@ -50,23 +50,37 @@ labels use the `.eyebrow` class; headlines use `.display`.
 seamless announcement marquee, a search modal with live catalogue filtering,
 and wishlist / bag counters that spring on change.
 
-**Hero** — Full-height banner with a scroll-linked parallax backdrop, staggered
-headline entrance, and a trust strip beneath.
+**Hero reel** — A three-chapter video reel behind the headline. The poster
+still paints immediately and the video fades in over it only once it is
+genuinely rendering frames, so the hero is never blank and never flashes black.
+Scroll-linked parallax on the media, play/pause and mute controls, clickable
+chapter indicators, and a staggered headline entrance. See *Video* below.
 
 **Catalogue** — Category pills with a shared-layout active indicator, a sort
-dropdown (featured / price / newest), and a 3-up ↔ 4-up density toggle. Cards
-cross-fade to a second look on hover and expose an inline quick-add size row.
+dropdown (featured / price / newest), and a 3-up ↔ 4-up density toggle. A
+collapsible facet panel filters by size, colour and max price, with removable
+chips summarising what's active and a clear-all. Cards cross-fade to a second
+look on hover and expose an inline quick-add size row.
 
 **Bag** — A spring-driven slide-over with a live free-shipping progress bar,
 per-line size switching, quantity steppers, and removal. Changing a line's size
 into one that already exists merges the two rather than leaving duplicates.
 
-**Quick view** — Modal with a thumbnail gallery, colour and size selection, a
-size-guide drawer layered above it, and an add-to-bag confirmation that hands
-off to the bag.
+**Quick view** — Modal with a thumbnail gallery navigable by arrow keys or
+hover arrows, colour and size selection, a size-guide drawer layered above it,
+and an add-to-bag confirmation that hands off to the bag.
 
 **Lookbook** — An asymmetric magazine grid with "shop the look" pins that open
 a product card in place; the popover flips its anchor near the frame edges.
+
+**Session memory** — The bag, wishlist, currency and recently-viewed history
+persist to `localStorage`, so a reload or a restored tab picks up where the
+shopper left off. A *Recently viewed* rail appears once there is history worth
+showing.
+
+**Wayfinding** — A hairline scroll-progress bar on the sticky header, and a
+back-to-top control that steps aside when the footer arrives (the footer
+carries its own inline link instead).
 
 **Footer** — Newsletter capture with inline validation and a success state,
 structured link columns, and a currency selector that re-denominates every
@@ -83,16 +97,63 @@ or an offline shopper degrades to something deliberate rather than a broken
 image icon. Images that carry overlaid type (hero, lookbook) use a wordless
 variant of the placeholder.
 
+## Video
+
+`src/data/hero.js` is the single place the reel is configured. Each chapter
+pairs a poster still with an ordered list of sources:
+
+```js
+{
+  id: 'reel-01',
+  poster: 'photo-1490481651871-ab68de25d43d',
+  sources: [
+    { src: 'https://…/your-clip.mp4', type: 'video/mp4' },
+    { src: '/videos/atelier-drape.webm', type: 'video/webm' },
+    { src: '/videos/atelier-drape.mp4',  type: 'video/mp4'  },
+  ],
+}
+```
+
+The browser's media-resource selection walks that list, so a URL that 404s
+falls through to the next. The tail of every chain is a local file committed to
+`public/videos/`, which means the reel always has something to play even with
+no network. WebM is listed before MP4 so Chrome and Firefox take the smaller
+file and Safari lands on H.264.
+
+**To use your own footage**, drop files into `public/videos/` and reference them
+as `/videos/<name>.mp4`, or point `src` at any CDN URL. Keep clips short and
+under ~3 MB — they autoplay on first paint.
+
+The handoff is deliberately conservative:
+
+- The poster is painted first and only replaced on the `playing` event — "has
+  enough data" is not the same as "is on screen", and waiting for real playback
+  is what removes the black flash.
+- Video is never loaded at all under `prefers-reduced-motion` or when the
+  browser reports `saveData` / a 2G connection.
+- Every failure route lands back on the poster: a decode error, refused
+  autoplay, a load that hangs past 7s, or an exhausted source list. In that
+  state the reel keeps moving by crossfading the stills.
+- Exhausting a `<source>` list fires `error` at the last *source*, not at the
+  media element, so that case is detected via `networkState` rather than the
+  media `error` event.
+- Playback pauses when the hero scrolls out of view.
+
 ## Project layout
 
 ```
 src/
-├── components/      Navbar, Hero, ProductGrid, ProductCard, CartDrawer,
-│                    QuickViewModal, Lookbook, Footer, SearchModal,
-│                    SizeGuide, Toaster, Marquee, SmartImage, Button
+├── components/      Navbar, Hero, HeroMedia, ProductGrid, ProductCard,
+│                    CartDrawer, QuickViewModal, Lookbook, Footer,
+│                    SearchModal, SizeGuide, Toaster, Marquee,
+│                    RecentlyViewed, ScrollProgress, BackToTop,
+│                    SmartImage, Button
+├── hooks/           usePersistentState (localStorage), useFocusTrap
 ├── store/           StoreContext — cart reducer, wishlist, overlays, toasts
-├── data/            products.js (18 pieces), lookbook.js
+├── data/            products.js (18 pieces), lookbook.js, hero.js (reel)
 └── lib/             utils.js (cn, currency), images.js (URLs, fallback)
+
+public/videos/       Local fallback loop (WebM + MP4)
 ```
 
 Cart state lives in a `useReducer` inside `StoreContext`; a line is keyed by
@@ -102,11 +163,12 @@ memoised off that state rather than tracked separately.
 
 ## Accessibility
 
-Overlays are labelled dialogs that trap body scroll without layout shift and
-close on Escape (the size guide closes first when stacked). Controls carry
+Overlays are labelled dialogs that trap body scroll without layout shift, keep
+Tab inside the panel, restore focus to whatever opened them, and close on
+Escape (the size guide closes first when stacked). Controls carry
 `aria-pressed` / `aria-expanded` state, the toast region is `aria-live`, there
-is a skip link to the catalogue, and every animation respects
-`prefers-reduced-motion`.
+is a skip link to the catalogue, and every animation — the hero reel included —
+respects `prefers-reduced-motion`.
 
 ---
 

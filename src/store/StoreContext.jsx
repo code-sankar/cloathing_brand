@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { FREE_SHIPPING_THRESHOLD, PRODUCT_MAP } from '../data/products'
+import { usePersistentState } from '../hooks/usePersistentState'
 
 const StoreContext = createContext(null)
 
@@ -79,10 +80,35 @@ function useScrollLock(locked) {
   }, [locked])
 }
 
+/** Reject stored carts written by an older build, or hand-edited nonsense. */
+const isValidCart = (value) =>
+  Array.isArray(value) &&
+  value.every(
+    (line) =>
+      line &&
+      typeof line.key === 'string' &&
+      typeof line.productId === 'string' &&
+      Number.isFinite(line.qty) &&
+      // A product that no longer exists must not resurrect itself in the bag.
+      Boolean(PRODUCT_MAP[line.productId]),
+  )
+
+const isValidWishlist = (value) =>
+  Array.isArray(value) && value.every((id) => typeof id === 'string' && PRODUCT_MAP[id])
+
 export function StoreProvider({ children }) {
-  const [cart, dispatch] = useReducer(cartReducer, [])
-  const [wishlist, setWishlist] = useState([])
-  const [currency, setCurrency] = useState('USD')
+  const [storedCart, setStoredCart] = usePersistentState('cart', [], isValidCart)
+  const [cart, dispatch] = useReducer(cartReducer, storedCart)
+  const [wishlist, setWishlist] = usePersistentState('wishlist', [], isValidWishlist)
+  const [currency, setCurrency] = usePersistentState('currency', 'USD', (v) =>
+    typeof v === 'string',
+  )
+  const [recentIds, setRecentIds] = usePersistentState('recent', [], isValidWishlist)
+
+  // Mirror every cart change back to storage.
+  useEffect(() => {
+    setStoredCart(cart)
+  }, [cart, setStoredCart])
 
   // One object for every overlay keeps "is anything open?" a single question.
   const [ui, setUi] = useState({
@@ -207,7 +233,14 @@ export function StoreProvider({ children }) {
       ui,
       setPanel,
       closeAll,
-      openQuickView: (id) => setPanel('quickView', id),
+      openQuickView: (id) => {
+        setPanel('quickView', id)
+        // Most-recent first, no duplicates, capped at eight.
+        setRecentIds((prev) => [id, ...prev.filter((entry) => entry !== id)].slice(0, 8))
+      },
+      recentlyViewed: recentIds
+        .map((id) => PRODUCT_MAP[id])
+        .filter(Boolean),
       // currency
       currency,
       setCurrency,
@@ -219,7 +252,7 @@ export function StoreProvider({ children }) {
     [
       lines, count, subtotal, savings, remainingForFreeShipping, shippingProgress,
       addToCart, wishlist, toggleWishlist, ui, setPanel, closeAll, currency, toasts,
-      pushToast, dismissToast,
+      pushToast, dismissToast, recentIds, setRecentIds, setCurrency,
     ],
   )
 

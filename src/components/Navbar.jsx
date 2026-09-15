@@ -4,6 +4,7 @@ import { Heart, Menu, Search, ShoppingBag, X } from 'lucide-react'
 import { useStore } from '../store/StoreContext'
 import { cn } from '../lib/utils'
 import AnnouncementBar from './AnnouncementBar'
+import ScrollProgress from './ScrollProgress'
 
 const LINKS = [
   { label: 'New Arrivals', href: '#catalogue' },
@@ -52,10 +53,11 @@ export default function Navbar() {
 
       <div
         className={cn(
-          'backdrop-blur-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]',
+          'relative backdrop-blur-md transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]',
           scrolled ? 'bg-cream/80 shadow-[0_1px_0_rgba(15,15,15,0.08)]' : 'bg-cream/60',
         )}
       >
+        <ScrollProgress />
         <nav
           aria-label="Primary"
           className={cn(

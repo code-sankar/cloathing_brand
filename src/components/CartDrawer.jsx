@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, Check, Minus, Plus, ShoppingBag, Trash2, Truck, X } from 'lucide-react'
 import { useStore } from '../store/StoreContext'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import { FREE_SHIPPING_THRESHOLD } from '../data/products'
 import { cn, formatPrice } from '../lib/utils'
 import SmartImage from './SmartImage'
@@ -67,7 +68,9 @@ export default function CartDrawer() {
   } = useStore()
 
   const [checkingOut, setCheckingOut] = useState(false)
+  const panelRef = useRef(null)
   const open = ui.cart
+  useFocusTrap(panelRef, open)
   const qualifies = remainingForFreeShipping === 0
 
   const close = () => setPanel('cart', false)
@@ -101,6 +104,7 @@ export default function CartDrawer() {
           />
 
           <motion.aside
+            ref={panelRef}
             role="dialog"
             aria-modal="true"
             aria-label="Shopping bag"

@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, ChevronDown, Grid2x2, LayoutGrid } from 'lucide-react'
+import { Check, ChevronDown, Grid2x2, LayoutGrid, SlidersHorizontal, X } from 'lucide-react'
 import { CATEGORIES, PRODUCTS, SORT_OPTIONS } from '../data/products'
-import { cn } from '../lib/utils'
+import { useStore } from '../store/StoreContext'
+import { cn, formatPrice } from '../lib/utils'
 import ProductCard from './ProductCard'
+
+/* Facets derived once from the catalogue rather than hand-maintained. */
+const ALL_SIZES = [...new Set(PRODUCTS.flatMap((p) => p.sizes))]
+const ALL_COLORS = [
+  ...new Map(PRODUCTS.flatMap((p) => p.colors).map((c) => [c.name, c])).values(),
+].sort((a, b) => a.name.localeCompare(b.name))
+const PRICE_MIN = Math.min(...PRODUCTS.map((p) => p.price))
+const PRICE_MAX = Math.max(...PRODUCTS.map((p) => p.price))
 
 /** Accessible dropdown that closes on outside click and Escape. */
 function SortDropdown({ value, onChange }) {
@@ -35,7 +44,7 @@ function SortDropdown({ value, onChange }) {
         aria-expanded={open}
         className="flex h-10 items-center gap-2 border border-line px-4 font-display text-[11px] font-medium uppercase tracking-[0.16em] transition-colors hover:border-obsidian"
       >
-        <span className="text-muted">Sort</span>
+        <span className="hidden text-muted sm:inline">Sort</span>
         <span>{active?.label}</span>
         <ChevronDown
           className={cn('h-3.5 w-3.5 transition-transform duration-300', open && 'rotate-180')}
@@ -77,26 +86,67 @@ function SortDropdown({ value, onChange }) {
   )
 }
 
+/** A removable summary of one active facet. */
+function FilterChip({ label, onRemove }) {
+  return (
+    <motion.button
+      type="button"
+      layout
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      transition={{ duration: 0.2 }}
+      onClick={onRemove}
+      className="group flex shrink-0 items-center gap-1.5 rounded-full bg-obsidian px-3 py-1.5 font-display text-[10px] font-medium uppercase tracking-[0.14em] text-cream"
+    >
+      {label}
+      <X className="h-3 w-3 opacity-60 transition-opacity group-hover:opacity-100" strokeWidth={2.2} />
+    </motion.button>
+  )
+}
+
 export default function ProductGrid() {
+  const { currency } = useStore()
+
   const [category, setCategory] = useState('All')
   const [sort, setSort] = useState('featured')
-  const [dense, setDense] = useState(false) // false = 3 cols, true = 4 cols on desktop
+  const [dense, setDense] = useState(false)
+  const [panelOpen, setPanelOpen] = useState(false)
+  const [sizes, setSizes] = useState([])
+  const [colors, setColors] = useState([])
+  const [maxPrice, setMaxPrice] = useState(PRICE_MAX)
+
+  const toggle = (setter) => (value) =>
+    setter((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]))
+
+  const clearAll = () => {
+    setSizes([])
+    setColors([])
+    setMaxPrice(PRICE_MAX)
+    setCategory('All')
+  }
+
+  const priceFiltered = maxPrice < PRICE_MAX
+  const activeCount = sizes.length + colors.length + (priceFiltered ? 1 : 0)
 
   const visible = useMemo(() => {
-    const filtered =
-      category === 'All' ? [...PRODUCTS] : PRODUCTS.filter((p) => p.category === category)
+    let list = category === 'All' ? [...PRODUCTS] : PRODUCTS.filter((p) => p.category === category)
+
+    if (sizes.length) list = list.filter((p) => p.sizes.some((s) => sizes.includes(s)))
+    if (colors.length) list = list.filter((p) => p.colors.some((c) => colors.includes(c.name)))
+    if (priceFiltered) list = list.filter((p) => p.price <= maxPrice)
 
     switch (sort) {
       case 'price-asc':
-        return filtered.sort((a, b) => a.price - b.price)
+        return list.sort((a, b) => a.price - b.price)
       case 'price-desc':
-        return filtered.sort((a, b) => b.price - a.price)
+        return list.sort((a, b) => b.price - a.price)
       case 'newest':
-        return filtered.sort((a, b) => new Date(b.releasedOn) - new Date(a.releasedOn))
+        return list.sort((a, b) => new Date(b.releasedOn) - new Date(a.releasedOn))
       default:
-        return filtered.sort((a, b) => a.rank - b.rank)
+        return list.sort((a, b) => a.rank - b.rank)
     }
-  }, [category, sort])
+  }, [category, sort, sizes, colors, maxPrice, priceFiltered])
 
   return (
     <section id="catalogue" className="mx-auto max-w-[1600px] px-4 py-20 sm:px-6 lg:px-10 lg:py-28">
@@ -152,6 +202,23 @@ export default function ProductGrid() {
                 {visible.length} pieces
               </p>
 
+              <button
+                type="button"
+                onClick={() => setPanelOpen((prev) => !prev)}
+                aria-expanded={panelOpen}
+                aria-controls="filter-panel"
+                className={cn(
+                  'flex h-10 items-center gap-2 border px-4 font-display text-[11px] font-medium uppercase tracking-[0.16em] transition-colors',
+                  activeCount > 0
+                    ? 'border-obsidian bg-obsidian text-cream'
+                    : 'border-line hover:border-obsidian',
+                )}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" strokeWidth={1.6} />
+                Filters
+                {activeCount > 0 && <span className="tabular-nums">({activeCount})</span>}
+              </button>
+
               {/* Density toggle — hidden on mobile, which is always 2-up. */}
               <div className="hidden items-center border border-line lg:flex">
                 <button
@@ -184,6 +251,128 @@ export default function ProductGrid() {
             </div>
           </div>
         </div>
+
+        {/* Active facets */}
+        <AnimatePresence>
+          {activeCount > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pt-3">
+                <AnimatePresence initial={false}>
+                  {sizes.map((size) => (
+                    <FilterChip key={'s' + size} label={`Size ${size}`} onRemove={() => toggle(setSizes)(size)} />
+                  ))}
+                  {colors.map((color) => (
+                    <FilterChip key={'c' + color} label={color} onRemove={() => toggle(setColors)(color)} />
+                  ))}
+                  {priceFiltered && (
+                    <FilterChip
+                      key="price"
+                      label={`Under ${formatPrice(maxPrice, currency)}`}
+                      onRemove={() => setMaxPrice(PRICE_MAX)}
+                    />
+                  )}
+                </AnimatePresence>
+                <button
+                  type="button"
+                  onClick={clearAll}
+                  className="link-underline shrink-0 pl-1 font-display text-[10px] uppercase tracking-[0.16em] text-muted transition-colors hover:text-obsidian"
+                >
+                  Clear all
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Filter panel */}
+        <AnimatePresence>
+          {panelOpen && (
+            <motion.div
+              id="filter-panel"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="mt-4 grid gap-8 border-t border-line pt-6 md:grid-cols-3">
+                <div>
+                  <p className="eyebrow text-[10px] text-muted">Size</p>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {ALL_SIZES.map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => toggle(setSizes)(size)}
+                        aria-pressed={sizes.includes(size)}
+                        className={cn(
+                          'min-w-11 border px-2.5 py-2 font-display text-[10px] font-medium uppercase tracking-[0.12em] transition-colors',
+                          sizes.includes(size)
+                            ? 'border-obsidian bg-obsidian text-cream'
+                            : 'border-line text-charcoal hover:border-obsidian',
+                        )}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="eyebrow text-[10px] text-muted">Colour</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {ALL_COLORS.map((color) => (
+                      <button
+                        key={color.name}
+                        type="button"
+                        onClick={() => toggle(setColors)(color.name)}
+                        aria-pressed={colors.includes(color.name)}
+                        title={color.name}
+                        aria-label={color.name}
+                        className={cn(
+                          'h-7 w-7 rounded-full border transition-all duration-200',
+                          colors.includes(color.name)
+                            ? 'border-obsidian ring-1 ring-obsidian ring-offset-2 ring-offset-cream'
+                            : 'border-line hover:border-muted',
+                        )}
+                        style={{ backgroundColor: color.hex }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="max-price" className="eyebrow text-[10px] text-muted">
+                    Max price —{' '}
+                    <span className="text-obsidian tabular-nums">
+                      {formatPrice(maxPrice, currency)}
+                    </span>
+                  </label>
+                  <input
+                    id="max-price"
+                    type="range"
+                    min={PRICE_MIN}
+                    max={PRICE_MAX}
+                    step={5}
+                    value={maxPrice}
+                    onChange={(event) => setMaxPrice(Number(event.target.value))}
+                    className="mt-4 h-1 w-full cursor-pointer appearance-none rounded-full bg-line accent-obsidian"
+                  />
+                  <div className="mt-2 flex justify-between text-[10px] text-muted tabular-nums">
+                    <span>{formatPrice(PRICE_MIN, currency)}</span>
+                    <span>{formatPrice(PRICE_MAX, currency)}</span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Grid */}
@@ -211,9 +400,16 @@ export default function ProductGrid() {
       </motion.div>
 
       {visible.length === 0 && (
-        <p className="py-24 text-center text-sm text-muted">
-          Nothing in this category yet — check back after the next drop.
-        </p>
+        <div className="py-24 text-center">
+          <p className="text-sm text-muted">Nothing matches those filters yet.</p>
+          <button
+            type="button"
+            onClick={clearAll}
+            className="mt-4 border border-obsidian px-6 py-3 font-display text-[11px] font-medium uppercase tracking-[0.18em] transition-colors hover:bg-obsidian hover:text-cream"
+          >
+            Clear filters
+          </button>
+        </div>
       )}
     </section>
   )

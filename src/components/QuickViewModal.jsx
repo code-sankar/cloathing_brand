@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, Heart, Minus, Plus, Ruler, Star, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Heart, Minus, Plus, Ruler, Star, X } from 'lucide-react'
 import { useStore } from '../store/StoreContext'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import { PRODUCT_MAP } from '../data/products'
 import { cn, formatPrice } from '../lib/utils'
 import SmartImage from './SmartImage'
@@ -20,6 +21,8 @@ export default function QuickViewModal() {
   const [colorIndex, setColorIndex] = useState(0)
   const [qty, setQty] = useState(1)
   const [justAdded, setJustAdded] = useState(false)
+  const panelRef = useRef(null)
+  useFocusTrap(panelRef, Boolean(product))
 
   // Reset per-product selections whenever a different piece is opened.
   useEffect(() => {
@@ -30,6 +33,27 @@ export default function QuickViewModal() {
     setJustAdded(false)
     setSize(product.sizes.length === 1 ? product.sizes[0] : null)
   }, [product])
+
+  const imageCount = product?.images.length ?? 0
+  const step = useCallback(
+    (delta) => setImageIndex((prev) => (prev + delta + imageCount) % imageCount),
+    [imageCount],
+  )
+
+  useEffect(() => {
+    if (!product) return
+    const onKeyDown = (event) => {
+      if (event.key === 'ArrowRight') {
+        event.preventDefault()
+        step(1)
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault()
+        step(-1)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [product, step])
 
   if (!product) return <AnimatePresence />
 
@@ -70,6 +94,7 @@ export default function QuickViewModal() {
           />
 
           <motion.div
+            ref={panelRef}
             role="dialog"
             aria-modal="true"
             aria-label={`${product.name} quick view`}
@@ -90,7 +115,7 @@ export default function QuickViewModal() {
 
             {/* Gallery */}
             <div className="flex shrink-0 flex-col bg-haze sm:w-1/2">
-              <div className="relative h-[38svh] w-full shrink-0 overflow-hidden sm:h-auto sm:flex-1">
+              <div className="group/gallery relative h-[38svh] w-full shrink-0 overflow-hidden sm:h-auto sm:flex-1">
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={imageIndex}
@@ -111,6 +136,27 @@ export default function QuickViewModal() {
                     />
                   </motion.div>
                 </AnimatePresence>
+
+                {imageCount > 1 && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => step(-1)}
+                      aria-label="Previous image"
+                      className="absolute left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center bg-cream/85 text-obsidian opacity-0 backdrop-blur-sm transition-all duration-300 hover:bg-cream focus-visible:opacity-100 group-hover/gallery:opacity-100"
+                    >
+                      <ChevronLeft className="h-4 w-4" strokeWidth={1.6} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => step(1)}
+                      aria-label="Next image"
+                      className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center bg-cream/85 text-obsidian opacity-0 backdrop-blur-sm transition-all duration-300 hover:bg-cream focus-visible:opacity-100 group-hover/gallery:opacity-100"
+                    >
+                      <ChevronRight className="h-4 w-4" strokeWidth={1.6} />
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* Thumbnails */}

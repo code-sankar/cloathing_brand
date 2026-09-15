@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion'
 import { ArrowRight, Leaf, RotateCcw, Truck } from 'lucide-react'
 import Button from './Button'
-import SmartImage from './SmartImage'
+import HeroMedia from './HeroMedia'
 
 const TRUST = [
   { icon: Leaf, title: 'Sustainable Sourcing', copy: 'Traceable fibres, audited mills' },
@@ -33,28 +33,15 @@ export default function Hero() {
 
   return (
     <section id="top" className="bg-cream">
-      <div ref={sectionRef} className="relative h-[92svh] min-h-[600px] w-full overflow-hidden">
-        <motion.div style={{ y: imageY }} className="absolute inset-0 scale-110">
-          <SmartImage
-            id="photo-1490481651871-ab68de25d43d"
-            alt="Model wearing the Autumn Volume 04 collection"
-            label="Autumn Volume 04"
-            ratio="16 / 9"
-            width={2000}
-            sizes="100vw"
-            priority
-            fallbackText={false}
-            wrapperClassName="h-full w-full bg-obsidian"
-            className="object-center"
-          />
-        </motion.div>
+      <div ref={sectionRef} className="relative h-[calc(100svh-7.25rem)] min-h-[560px] w-full overflow-hidden">
+        <HeroMedia mediaStyle={{ y: imageY }} />
 
-        {/* Scrim: heavier at the foot so the type always clears the photo. */}
-        <div className="absolute inset-0 bg-gradient-to-t from-obsidian/85 via-obsidian/35 to-obsidian/25" />
+        {/* Scrim: heavier at the foot so the type always clears the footage. */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-obsidian/85 via-obsidian/35 to-obsidian/25" />
 
         <motion.div
           style={{ opacity: contentOpacity }}
-          className="relative mx-auto flex h-full max-w-[1600px] flex-col justify-end px-4 pb-14 sm:px-6 sm:pb-20 lg:px-10 lg:pb-24"
+          className="relative mx-auto flex h-full max-w-[1600px] flex-col justify-end px-4 pb-20 sm:px-6 sm:pb-20 lg:px-10 lg:pb-24"
         >
           <motion.p
             variants={rise}

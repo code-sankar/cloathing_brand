@@ -1,6 +1,8 @@
+import { useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { X } from 'lucide-react'
 import { useStore } from '../store/StoreContext'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 
 const ROWS = [
   { size: 'XS', chest: '86–91', waist: '71–76', length: '68' },
@@ -16,6 +18,8 @@ const ROWS = [
  */
 export default function SizeGuide() {
   const { ui, setPanel } = useStore()
+  const panelRef = useRef(null)
+  useFocusTrap(panelRef, ui.sizeGuide)
 
   return (
     <AnimatePresence>
@@ -33,6 +37,7 @@ export default function SizeGuide() {
           />
 
           <motion.aside
+            ref={panelRef}
             role="dialog"
             aria-modal="true"
             aria-label="Size guide"

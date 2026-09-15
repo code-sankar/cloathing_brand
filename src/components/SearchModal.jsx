@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Search, X } from 'lucide-react'
 import { useStore } from '../store/StoreContext'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import { PRODUCTS } from '../data/products'
 import { formatPrice } from '../lib/utils'
 import SmartImage from './SmartImage'
@@ -13,7 +14,9 @@ export default function SearchModal() {
   const [query, setQuery] = useState('')
   const inputRef = useRef(null)
 
+  const panelRef = useRef(null)
   const open = ui.search
+  useFocusTrap(panelRef, open)
 
   useEffect(() => {
     if (open) {
@@ -51,6 +54,7 @@ export default function SearchModal() {
           />
 
           <motion.div
+            ref={panelRef}
             role="dialog"
             aria-modal="true"
             aria-label="Search products"

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, Check, ChevronDown } from 'lucide-react'
+import { ArrowRight, ArrowUp, Check, ChevronDown } from 'lucide-react'
 import { useStore } from '../store/StoreContext'
 import { CURRENCIES, cn } from '../lib/utils'
 
@@ -220,6 +220,14 @@ export default function Footer() {
           </div>
 
           <div className="flex flex-wrap items-center gap-5">
+            <button
+              type="button"
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="link-underline flex items-center gap-2 font-display text-[11px] uppercase tracking-[0.18em] text-cream/70 transition-colors hover:text-cream"
+            >
+              <ArrowUp className="h-3.5 w-3.5" strokeWidth={1.6} />
+              Back to top
+            </button>
             <CurrencySelect />
             <p className="text-[11px] text-cream/45">
               © {new Date().getFullYear()} Aura Atelier — a demo storefront.
